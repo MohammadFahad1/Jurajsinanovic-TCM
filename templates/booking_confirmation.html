@@ -1,0 +1,68 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; color: #475569; }
+        .main-container { max-width: 600px; margin: 0 auto; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body style="background-color: #f4f7f6; margin: 0 !important; padding: 0 !important; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 40px 0;">
+        <tr>
+            <td align="center">
+                <!-- Main Container -->
+                <table class="main-container" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="background: linear-gradient(135deg, #004d4f 0%, #006569 100%); padding: 40px 30px; text-align: center;">
+                            <div style="background-color: rgba(255,255,255,0.18); width: 64px; height: 64px; border-radius: 50%; line-height: 64px; text-align: center; margin: 0 auto 15px auto; font-size: 30px;">🎟️</div>
+                            <h2 style="font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: 2px; text-transform: uppercase; margin: 0;">Prune</h2>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 45px 40px; font-size: 16px; line-height: 1.6; color: #475569;">
+                            <h1 style="color: #1c2b2b; font-size: 24px; margin-top: 0; font-weight: 700; text-align: center;">Booking Confirmed!</h1>
+                            <p style="text-align: center; margin-bottom: 25px; color: #475569;">
+                                Thank you for booking with us! Here is your official check-in QR code for your upcoming experience.
+                            </p>
+
+                            <!-- Tour Details Box -->
+                            <div style="background-color: #f8fafc; border-radius: 12px; padding: 25px; margin-bottom: 30px; border: 1px solid #e2ecec;">
+                                <p style="margin: 5px 0; font-size: 16px; color: #1c2b2b;"><strong>Tour:</strong> {{ tour_title }}</p>
+                                <p style="margin: 5px 0; font-size: 16px; color: #1c2b2b;"><strong>Date & Time:</strong> {{ tour_starts_at }}</p>
+                                <p style="margin: 5px 0; font-size: 16px; color: #1c2b2b;"><strong>Meeting Point:</strong> {{ meeting_point }}</p>
+                                <p style="margin: 5px 0; font-size: 16px; color: #1c2b2b;"><strong>Guests:</strong> {{ guest_count }}</p>
+                                <p style="margin: 5px 0; font-size: 16px; color: #1c2b2b;"><strong>Booking Reference:</strong> <span style="font-family: monospace; color: #006569; font-weight: 700;">{{ booking_reference }}</span></p>
+                            </div>
+                            
+                            <!-- QR Code Box -->
+                            <div style="background-color: #f0f7f7; border-radius: 12px; padding: 30px; text-align: center; margin: 35px 0; border: 1.5px dashed #006569;">
+                                <p style="margin-top: 0; margin-bottom: 15px; font-size: 13px; color: #006569; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Your Arrival Check-In QR Code</p>
+                                {% if qr_code_url %}
+                                    <img src="{{ qr_code_url }}" alt="Check-In QR Code" style="width: 200px; height: 200px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
+                                {% else %}
+                                    <p style="font-family: monospace; font-size: 20px; font-weight: bold; color: #004d4f;">{{ booking_reference }}</p>
+                                {% endif %}
+                                <p style="font-size: 14px; color: #006569; margin-top: 15px; margin-bottom: 0;">Show this QR code to your Tour Guide on arrival.</p>
+                            </div>
+
+                            <p style="text-align: center; font-size: 14px; color: #64748b; margin-top: 30px;">
+                                Need assistance or have questions? Contact us at support@prune.com.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

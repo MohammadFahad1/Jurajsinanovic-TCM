@@ -1,5 +1,6 @@
 from django.urls import path
+from accounts import views
 
 urlpatterns = [
-    # Add API endpoints here
+    path('signup/', views.UserSignUpView.as_view(), name='signup'),
 ]
