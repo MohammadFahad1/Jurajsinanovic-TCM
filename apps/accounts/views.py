@@ -2,7 +2,7 @@ import random
 from core.base import NewAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.serializers import UserSignUpSerializer, EmailSerializer, EmailOTPSerializer
+from accounts.serializers import UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
@@ -150,7 +150,8 @@ class VerifyEmailAddressAPIView(NewAPIView):
                 "email": "[EMAIL_ADDRESS]",
                 "first_name": "John",
                 "last_name": "Doe",
-                "profile_picture": null
+                "profile_picture": null,
+                "role": "patient"
             }
         }
         ```
@@ -199,4 +200,79 @@ class VerifyEmailAddressAPIView(NewAPIView):
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class LoginAPIView(NewAPIView):
+    serializer_class = EmailPasswordSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=["Authentication"])
+    def post(self, request, *args, **kwargs):
+        """
+        **Login API**\n
+        This API is used for logging in the user.\n
+
+        * Request Body:*
+            - email: (string) Email of the user
+            - password: (string) Password of the user\n
+
+        * Response:*
+            - success: (boolean) True if login successfull, False otherwise
+            - message: (string) Message indicating the status of the login process
+            - access: (string) Access token
+            - refresh: (string) Refresh token
+            - user: (object) User object containing the details of the logged in user\n
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Login successfull",
+            "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "user": {
+                "id": 1,
+                "email": "[EMAIL_ADDRESS]",
+                "first_name": "John",
+                "last_name": "Doe",
+                "profile_picture": null,
+                "role": "patient"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Login successfull
+            - 400: Bad request (e.g., missing fields, user does not exist, invalid password, user is not activated)
+            - 500: Internal server error
+        """
+        try:
+            email = request.data.get("email")
+            password = request.data.get("password")
+            if not email or not password:
+                return Response({"success": False, "message": "Fields are required."}, status=status.HTTP_400_BAD_REQUEST)
+            if not User.objects.filter(email=email).exists():
+                return Response({"success": False, "message": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(email=email)
+            if not user.check_password(password):
+                return Response({"success": False, "message": "Invalid password"}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.is_active or not user.status == 'active':
+                return Response({"success": False, "message": "User is not activated"}, status=status.HTTP_400_BAD_REQUEST)
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+            return Response({
+                "success": True, 
+                "message": "Login successfull", 
+                "access": str(access), 
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "profile_picture": request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None,
+                    "role": 'patient' if not user.is_superuser else 'admin',
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
