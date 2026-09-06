@@ -188,6 +188,7 @@ class VerifyEmailAddressAPIView(NewAPIView):
             user.status = 'active'
             user.otp = None
             user.otp_created_at = None
+            user.last_login = timezone.now()
             user.save()
             
             refresh = RefreshToken.for_user(user)
@@ -268,6 +269,8 @@ class LoginAPIView(NewAPIView):
                 return Response({"success": False, "message": "User is not activated"}, status=status.HTTP_400_BAD_REQUEST)
             refresh = RefreshToken.for_user(user)
             access = refresh.access_token
+            user.last_login = timezone.now()
+            user.save()
             return Response({
                 "success": True, 
                 "message": "Login successfull", 
@@ -551,6 +554,36 @@ class UserProfileAPIView(NewAPIView):
         **Responses**\n
         - 200: Profile information retrieved successfully
         - 401: Unauthorized
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "first_name": "Juraj",
+                "last_name": "Sinanovic",
+                "email": "[EMAIL_ADDRESS]",
+                "profile_picture": null,
+                "is_active": true,
+                "status": "active",
+                "plan": null,
+                "plan_start_date": null,
+                "plan_end_date": null,
+                "date_joined": "2026-09-06T04:22:08.448156Z",
+                "last_login": "2026-09-06T06:31:31.514545Z",
+                "is_staff": false,
+                "is_superuser": false,
+                "created_at": "2026-09-06T04:22:08.754765Z",
+                "updated_at": "2026-09-06T06:31:31.514682Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Profile information retrieved successfully
+            - 401: Unauthorized
+            - 500: Internal server error
         """
         try:
             user = request.user
