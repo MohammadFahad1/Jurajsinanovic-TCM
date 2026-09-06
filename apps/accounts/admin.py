@@ -30,8 +30,8 @@ class CustomUserAdmin(BaseUserAdmin):
     readonly_fields = (
         'created_at',
         'updated_at',
-        'otp_created_at',
-        'forgot_password_token',
+        # 'otp_created_at',
+        # 'forgot_password_token',
         'avatar_preview',
     )
 
@@ -52,13 +52,6 @@ class CustomUserAdmin(BaseUserAdmin):
         }),
         (_('Status & Access'), {
             'fields': ('status', 'is_active', 'is_staff', 'is_superuser')
-        }),
-        (_('Permissions'), {
-            'classes': ('collapse',),
-            'fields': (
-                'groups',
-                'user_permissions',
-            ),
         }),
         (_('Security Tokens'), {
             'classes': ('collapse',),
