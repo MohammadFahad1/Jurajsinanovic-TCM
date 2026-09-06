@@ -12,10 +12,15 @@ class UserSignUpSerializer(serializers.ModelSerializer):
             'first_name': {'required': True},
             'last_name': {'required': True},
             'email': {'required': True},
-            'password': {'required': True}
+            'password': {'required': True, 'write_only': True}
         }
 
 class EmailSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
+
+class EmailOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(required=True)
+
 
 

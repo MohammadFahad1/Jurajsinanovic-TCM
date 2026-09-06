@@ -2,12 +2,15 @@ import random
 from core.base import NewAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.serializers import UserSignUpSerializer, EmailSerializer
+from accounts.serializers import UserSignUpSerializer, EmailSerializer, EmailOTPSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 from accounts.tasks import send_activation_otp_email
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
 
 User = get_user_model()
 
@@ -72,7 +75,7 @@ class UserSignUpView(NewAPIView):
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-class ResendActivationEmail(NewAPIView):
+class ResendActivationEmailAPIView(NewAPIView):
     serializer_class = EmailSerializer
     permission_classes = [AllowAny]
     http_method_names = ['post']
@@ -112,3 +115,88 @@ class ResendActivationEmail(NewAPIView):
             return Response({"success": True, "message": "Activation email sent successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyEmailAddressAPIView(NewAPIView):
+    serializer_class = EmailOTPSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=["Authentication"])
+    def post(self, request, *args, **kwargs):
+        """
+        **Verify Email Address (Activate Account) API**\n
+        This API is used for verifying email address of the user.\n
+
+        * Request Body:*
+            - email: (string) Email of the user
+            - otp: (string) OTP sent to the user's email address\n
+
+        * Response:*
+            - success: (boolean) True if verification successfull, False otherwise
+            - message: (string) Message indicating the status of the verification process
+            - access: (string) Access token
+            - refresh: (string) Refresh token
+            - user: (object) User object containing the details of the created user\n
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Email verification successfull",
+            "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "user": {
+                "id": 1,
+                "email": "[EMAIL_ADDRESS]",
+                "first_name": "John",
+                "last_name": "Doe",
+                "profile_picture": null
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Verification successfull
+            - 400: Bad request (e.g., missing fields, user does not exist)
+            - 500: Internal server error
+        """
+        try:
+            email = request.data.get("email")
+            otp = request.data.get("otp")
+            if not email or not otp:
+                return Response({"success": False, "message": "Fields are required."}, status=status.HTTP_400_BAD_REQUEST)
+            if not User.objects.filter(email=email).exists():
+                return Response({"success": False, "message": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(email=email)
+            if user.is_active:
+                return Response({"success": False, "message": "User is already activated"}, status=status.HTTP_400_BAD_REQUEST)
+            if str(user.otp) != str(otp):
+                return Response({"success": False, "message": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.otp_created_at or (timezone.now() - user.otp_created_at) > timedelta(minutes=15):
+                return Response({"success": False, "message": "OTP is expired. Please request a new one."}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_active = True
+            user.status = 'active'
+            user.otp = None
+            user.otp_created_at = None
+            user.save()
+            
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+            return Response({
+                "success": True, 
+                "message": "Email verification successfull", 
+                "access": str(access), 
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "profile_picture": request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None,
+                    "role": 'patient' if not user.is_superuser else 'admin',
+                }
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
