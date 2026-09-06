@@ -16,6 +16,7 @@ from accounts.serializers import (
     EmailPasswordSerializer,
     ResetPasswordSerializer,
     ChangePasswordSerializer,
+    EmptySerializer,
 )
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -529,6 +530,51 @@ class ChangePasswordAPIView(NewAPIView):
             return Response({
                 "success": True,
                 "message": "Password changed successfully."
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class UserProfileAPIView(NewAPIView):
+    serializer_class = EmptySerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    @swagger_auto_schema(tags=['Authentication'])
+    def get(self, request):
+        """
+        **User Profile - Authenticated Users**\n
+        Retrieves the profile information for the authenticated user.
+
+        **Responses**\n
+        - 200: Profile information retrieved successfully
+        - 401: Unauthorized
+        """
+        try:
+            user = request.user
+            profile_data = {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'profile_picture': request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None,
+                'is_active': user.is_active,
+                'status': user.status,
+                'plan': user.plan,
+                'plan_start_date': user.plan_start_date,
+                'plan_end_date': user.plan_end_date,
+                'date_joined': user.date_joined,
+                'last_login': user.last_login,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'created_at': user.created_at,
+                'updated_at': user.updated_at,
+            }
+            return Response({
+                "success": True,
+                "data": profile_data
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({

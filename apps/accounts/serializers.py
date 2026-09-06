@@ -35,3 +35,5 @@ class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True)
 
+class EmptySerializer(serializers.Serializer):
+    pass
