@@ -9,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from core.exceptions import _format_error_message
 from accounts.serializers import (
     UserSignUpSerializer,
     EmailSerializer,
@@ -17,6 +19,7 @@ from accounts.serializers import (
     ResetPasswordSerializer,
     ChangePasswordSerializer,
     EmptySerializer,
+    UpdateUserProfileSerializer,
 )
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -541,9 +544,10 @@ class ChangePasswordAPIView(NewAPIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 class UserProfileAPIView(NewAPIView):
-    serializer_class = EmptySerializer
+    serializer_class = UpdateUserProfileSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    http_method_names = ['get', 'put']
 
     @swagger_auto_schema(tags=['Authentication'])
     def get(self, request):
@@ -615,6 +619,102 @@ class UserProfileAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        tags=['Authentication'],
+        request_body=UpdateUserProfileSerializer,
+        responses={
+            200: "Profile updated successfully",
+            400: "Bad request",
+            401: "Unauthorized",
+            500: "Internal server error"
+        }
+    )
+    def put(self, request, *args, **kwargs):
+        """
+        **Update User Profile - Authenticated Users**\n
+        Updates first_name, last_name, and/or profile_picture for the authenticated user.
+
+        **Request Body (multipart/form-data)**\n
+        ```
+        {
+            "first_name": "Juraj",
+            "last_name": "Sinanovic",
+            "profile_picture": "<profile_picture>"
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Profile updated successfully",
+            "data": {
+                "id": 1,
+                "first_name": "Juraj",
+                "last_name": "Sinanovic",
+                "email": "[EMAIL_ADDRESS]",
+                "profile_picture": null,
+                "is_active": true,
+                "status": "active",
+                "plan": null,
+                "plan_start_date": null,
+                "plan_end_date": null,
+                "date_joined": "2026-09-06T04:22:08.448156Z",
+                "last_login": "2026-09-06T06:31:31.514545Z",
+                "is_staff": false,
+                "is_superuser": false,
+                "created_at": "2026-09-06T04:22:08.754765Z",
+                "updated_at": "2026-09-06T06:31:31.514682Z"
+            }
+        }
+        ```
+
+        * Status Codes:*    
+            - 200: Profile updated successfully
+            - 400: Bad request
+            - 401: Unauthorized
+            - 500: Internal server error
+        """
+        try:
+            user = request.user
+            serializer = UpdateUserProfileSerializer(user, data=request.data, partial=True)
+            if not serializer.is_valid():
+                return Response({
+                    "success": False,
+                    "message": _format_error_message(serializer.errors)
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer.save()
+
+            profile_data = {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'profile_picture': request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None,
+                'is_active': user.is_active,
+                'status': user.status,
+                'plan': user.plan,
+                'plan_start_date': user.plan_start_date,
+                'plan_end_date': user.plan_end_date,
+                'date_joined': user.date_joined,
+                'last_login': user.last_login,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'created_at': user.created_at,
+                'updated_at': user.updated_at,
+            }
+            return Response({
+                "success": True,
+                "message": "Profile updated successfully",
+                "data": profile_data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
 class DeleteUserAccountAPIView(NewAPIView):
     serializer_class = EmptySerializer
     permission_classes = [IsAuthenticated]
@@ -646,3 +746,4 @@ class DeleteUserAccountAPIView(NewAPIView):
                 "success": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+

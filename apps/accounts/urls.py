@@ -13,3 +13,4 @@ urlpatterns = [
     path('me/', views.UserProfileAPIView.as_view(), name='me'),
     path('delete-account/', views.DeleteUserAccountAPIView.as_view(), name='delete-account')
 ]
+

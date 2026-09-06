@@ -37,3 +37,14 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class EmptySerializer(serializers.Serializer):
     pass
+
+class UpdateUserProfileSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'profile_picture')
+
+
