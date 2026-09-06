@@ -614,3 +614,35 @@ class UserProfileAPIView(NewAPIView):
                 "success": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class DeleteUserAccountAPIView(NewAPIView):
+    serializer_class = EmptySerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['delete']
+
+    @swagger_auto_schema(tags=['Authentication'])
+    def delete(self, request):
+        """
+        **Delete User Account - Authenticated Users**\n
+        Deletes the account of the authenticated user.
+
+        **Responses**\n
+        - 204: Account deleted successfully
+        - 400: Bad request
+        - 401: Unauthorized
+        - 500: Internal server error
+        """
+        try:
+            user = request.user
+            if request.user.is_superuser:
+                return Response({
+                    "success": False,
+                    "message": "Superuser account cannot be deleted."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
