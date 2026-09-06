@@ -15,6 +15,7 @@ class UserSignUpSerializer(serializers.ModelSerializer):
             'password': {'required': True}
         }
 
-
+class EmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
 
 

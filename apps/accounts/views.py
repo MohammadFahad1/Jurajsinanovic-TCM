@@ -2,7 +2,7 @@ import random
 from core.base import NewAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.serializers import UserSignUpSerializer
+from accounts.serializers import UserSignUpSerializer, EmailSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from drf_yasg.utils import swagger_auto_schema
@@ -21,7 +21,7 @@ class UserSignUpView(NewAPIView):
         """
         **User Sign Up API**\n
         This API is used for user sign up process. User can sign up using email and password. OTP will be sent to the user's email address. User needs to verify the OTP to complete the sign up process.\n
-        
+
         * Request Body:*
             - first_name: (string) First name of the user
             - last_name: (string) Last name of the user
@@ -72,3 +72,43 @@ class UserSignUpView(NewAPIView):
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class ResendActivationEmail(NewAPIView):
+    serializer_class = EmailSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=["Authentication"])
+    def post(self, request, *args, **kwargs):
+        """
+        **Resend Activation Email API**\n
+        This API is used for resending activation email to the user.\n
+
+        * Request Body:*
+            - email: (string) Email of the user\n
+
+        * Response:*
+            - success: (boolean) True if resend successfull, False otherwise
+            - message: (string) Message indicating the status of the resend process\n
+
+        * Status Codes:*
+            - 200: Resend successfull
+            - 400: Bad request (e.g., missing fields, user does not exist)
+            - 500: Internal server error
+        """
+        try:
+            email = request.data.get("email")
+            if not email:
+                return Response({"success": False, "message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            if not User.objects.filter(email=email).exists():
+                return Response({"success": False, "message": "User does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(email=email)
+            if user.is_active:
+                return Response({"success": False, "message": "User is already activated"}, status=status.HTTP_400_BAD_REQUEST)
+            otp = random.randint(100000, 999999)
+            user.otp = otp
+            user.otp_created_at = timezone.now()
+            user.save()
+            send_activation_otp_email.delay(email, otp)
+            return Response({"success": True, "message": "Activation email sent successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
