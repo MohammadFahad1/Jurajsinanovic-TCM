@@ -26,3 +26,12 @@ class EmailPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    reset_token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True)
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+

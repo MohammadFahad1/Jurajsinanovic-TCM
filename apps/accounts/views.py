@@ -1,16 +1,24 @@
+import uuid
 import random
+from datetime import timedelta
 from core.base import NewAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from accounts.serializers import UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
-from drf_yasg.utils import swagger_auto_schema
+from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
-from accounts.tasks import send_activation_otp_email
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from drf_yasg.utils import swagger_auto_schema
+from accounts.serializers import (
+    UserSignUpSerializer,
+    EmailSerializer,
+    EmailOTPSerializer,
+    EmailPasswordSerializer,
+    ResetPasswordSerializer,
+    ChangePasswordSerializer,
+)
+from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
-from datetime import timedelta
 
 User = get_user_model()
 
@@ -276,3 +284,257 @@ class LoginAPIView(NewAPIView):
         except Exception as e:
             return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class ForgotPasswordAPIView(NewAPIView):
+    serializer_class = EmailSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+    
+    @swagger_auto_schema(tags=['Authentication'])
+    def post(self, request):
+        """
+        **Forgot Password**\n
+        Initiate forgot password process by sending a reset OTP to the user's email.
+        
+        **Request Body**\n
+        - email: string (required, must be a valid email format)
+        
+        **Responses**\n
+        - 200: Reset OTP sent successfully
+        - 400: Bad request
+        """
+        try:
+            email = request.data.get('email')
+            if not email:
+                return Response({
+                    "success": False,
+                    "message": "Email is required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not User.objects.filter(email=email).exists():
+                return Response({
+                    "success": False,
+                    "message": "User not found"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = User.objects.get(email=email)
+            if user.otp_created_at and (timezone.now() - user.otp_created_at) < timedelta(minutes=1):
+                return Response({
+                    "success": False,
+                    "message": "An OTP has already been sent to your email, please try again in 1 minute."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            otp = str(random.randint(100000, 999999))
+            reset_token = str(uuid.uuid4())
+            user.otp = otp
+            user.otp_created_at = timezone.now()
+            user.forgot_password_token = reset_token
+            user.save()
+            
+            send_reset_otp_email.delay(email, otp)
+            
+            return Response({
+                "success": True,
+                "message": "An OTP has been sent to your email! Please check your email to reset your password."
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPasswordVerifyOTPAPIView(NewAPIView):
+    serializer_class = EmailOTPSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+    
+    @swagger_auto_schema(tags=['Authentication'])
+    def post(self, request):
+        """
+        **Forgot Password - Verify OTP**\n
+        Verify the OTP sent to the user's email for password reset.
+        
+        **Request Body**\n
+        - email: string (required)
+        - otp: string (required, 6-digit OTP)
+        
+        **Responses**\n
+        - 200: OTP verified successfully, returns reset token
+        - 400: Bad request
+        """
+        try:
+            email = request.data.get('email')
+            otp = request.data.get('otp')
+            if not email or not otp:
+                return Response({
+                    "success": False,
+                    "message": "All fields are required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not User.objects.filter(email=email).exists():
+                return Response({
+                    "success": False,
+                    "message": "User not found"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = User.objects.get(email=email)
+            if str(user.otp) != str(otp):
+                return Response({
+                    "success": False,
+                    "message": "Invalid OTP"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not user.otp_created_at or (timezone.now() - user.otp_created_at) > timedelta(minutes=15):
+                user.forgot_password_token = None
+                user.otp = None
+                user.otp_created_at = None
+                user.save()
+                return Response({
+                    "success": False,
+                    "message": "OTP has expired, please initiate the forgot password process again."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.otp = None
+            user.otp_created_at = None
+            user.save()
+            return Response({
+                "success": True,
+                "message": "OTP verified successfully",
+                "email": email,
+                "reset_token": str(user.forgot_password_token)
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ResetPasswordAPIView(NewAPIView):
+    serializer_class = ResetPasswordSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+    
+    @swagger_auto_schema(tags=['Authentication'])
+    def post(self, request):
+        """
+        **Reset Password**\n
+        Reset the user's password using the reset token obtained after OTP verification.
+        
+        **Request Body**\n
+        - email: string (required)
+        - reset_token: string (required)
+        - new_password: string (required)
+        
+        **Responses**\n
+        - 200: Password reset successfully
+        - 400: Bad request
+        """
+        try:
+            email = request.data.get('email')
+            reset_token = request.data.get('reset_token')
+            new_password = request.data.get('new_password')
+            if not all([email, reset_token, new_password]):
+                return Response({
+                    "success": False,
+                    "message": "All fields are required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not User.objects.filter(email=email).exists():
+                return Response({
+                    "success": False,
+                    "message": "User not found"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = User.objects.get(email=email)
+            if not user.forgot_password_token or str(user.forgot_password_token) != str(reset_token):
+                return Response({
+                    "success": False,
+                    "message": "Invalid reset token"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                validate_password(new_password, user=user)
+            except Exception as e:
+                return Response({
+                    "success": False,
+                    "message": str(e)
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(new_password)
+            user.forgot_password_token = None
+            user.otp = None
+            user.otp_created_at = None
+            user.save()
+            return Response({
+                "success": True,
+                "message": "Password reset successfully"
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordAPIView(NewAPIView):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=['Authentication'])
+    def post(self, request):
+        """
+        **Change Password**\n
+        Allows authenticated users to change their password by providing old and new passwords.
+
+        **Request Body**\n
+        - old_password: string (required)
+        - new_password: string (required)
+
+        **Responses**\n
+        - 200: Password changed successfully
+        - 400: Bad request
+        - 401: Unauthorized
+        """
+        try:
+            old_password = request.data.get('old_password')
+            new_password = request.data.get('new_password')
+            if not old_password or not new_password:
+                return Response({
+                    "success": False,
+                    "message": "Both old_password and new_password are required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user = request.user
+            if not user.check_password(old_password):
+                return Response({
+                    "success": False,
+                    "message": "Incorrect old password."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if old_password == new_password:
+                return Response({
+                    "success": False,
+                    "message": "New password cannot be the same as old password."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                validate_password(new_password, user=user)
+            except Exception as e:
+                return Response({
+                    "success": False,
+                    "message": str(e)
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user.set_password(new_password)
+            user.save()
+            return Response({
+                "success": True,
+                "message": "Password changed successfully."
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
