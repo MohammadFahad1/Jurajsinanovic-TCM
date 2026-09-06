@@ -19,12 +19,15 @@ from django.urls import path, include
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from django.conf import settings
+from django.conf.urls.static import static
+from debug_toolbar.toolbar import debug_toolbar_urls
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="TCM API",
+      title="Prune API",
       default_version='v1',
-      description="TCM API",
+      description="Prune API",
       terms_of_service="https://www.google.com/policies/terms/",
       contact=openapi.Contact(email="contact@snippets.local"),
       license=openapi.License(name="BSD License"),
@@ -47,4 +50,9 @@ urlpatterns = [
     path('api/v1/self-care/', include('apps.self_care.urls')),
     path('api/v1/subscriptions/', include('apps.subscriptions.urls')),
     path('api/v1/analytics/', include('apps.analytics.urls')),
-]
+] + debug_toolbar_urls()
+
+# Serve media files during development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

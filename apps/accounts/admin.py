@@ -8,9 +8,9 @@ from .models import User, ACTIVE, INACTIVE, SUSPENDED, DELETED
 
 admin.site.unregister(Group)
 
-admin.site.site_header = "TCM Admin Panel"
-admin.site.site_title = "TCM Admin Panel"
-admin.site.index_title = "Welcome to TCM Admin Panel"
+admin.site.site_header = "Prune Admin Panel"
+admin.site.site_title = "Prune Admin Panel"
+admin.site.index_title = "Welcome to Prune Admin Panel"
 
 @admin.register(User)
 class CustomUserAdmin(BaseUserAdmin):

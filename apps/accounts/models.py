@@ -17,7 +17,7 @@ STATUS_CHOICES = (
 
 class User(AbstractUser):
     username = None
-    email = models.EmailField(_('email address'), unique=True)
+    email = models.EmailField(unique=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     status = models.CharField(max_length=20, default=ACTIVE, choices=STATUS_CHOICES)
     otp = models.IntegerField(null=True, blank=True)
