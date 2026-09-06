@@ -30,7 +30,7 @@ class UserSignUpView(NewAPIView):
     @swagger_auto_schema(tags=["Authentication"])
     def post(self, request, *args, **kwargs):
         """
-        **User Sign Up API**\n
+        **User Sign Up API - Public**\n
         This API is used for user sign up process. User can sign up using email and password. OTP will be sent to the user's email address. User needs to verify the OTP to complete the sign up process.\n
 
         * Request Body:*
@@ -91,7 +91,7 @@ class ResendActivationEmailAPIView(NewAPIView):
     @swagger_auto_schema(tags=["Authentication"])
     def post(self, request, *args, **kwargs):
         """
-        **Resend Activation Email API**\n
+        **Resend Activation Email API - Public**\n
         This API is used for resending activation email to the user.\n
 
         * Request Body:*
@@ -132,7 +132,7 @@ class VerifyEmailAddressAPIView(NewAPIView):
     @swagger_auto_schema(tags=["Authentication"])
     def post(self, request, *args, **kwargs):
         """
-        **Verify Email Address (Activate Account) API**\n
+        **Verify Email Address (Activate Account) API - Public**\n
         This API is used for verifying email address of the user.\n
 
         * Request Body:*
@@ -216,7 +216,7 @@ class LoginAPIView(NewAPIView):
     @swagger_auto_schema(tags=["Authentication"])
     def post(self, request, *args, **kwargs):
         """
-        **Login API**\n
+        **Login API - Public**\n
         This API is used for logging in the user.\n
 
         * Request Body:*
@@ -292,7 +292,7 @@ class ForgotPasswordAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Authentication'])
     def post(self, request):
         """
-        **Forgot Password**\n
+        **Forgot Password - Public**\n
         Initiate forgot password process by sending a reset OTP to the user's email.
         
         **Request Body**\n
@@ -342,7 +342,6 @@ class ForgotPasswordAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-
 class ForgotPasswordVerifyOTPAPIView(NewAPIView):
     serializer_class = EmailOTPSerializer
     permission_classes = [AllowAny]
@@ -351,7 +350,7 @@ class ForgotPasswordVerifyOTPAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Authentication'])
     def post(self, request):
         """
-        **Forgot Password - Verify OTP**\n
+        **Forgot Password, Verify OTP - Public**\n
         Verify the OTP sent to the user's email for password reset.
         
         **Request Body**\n
@@ -409,7 +408,6 @@ class ForgotPasswordVerifyOTPAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-
 class ResetPasswordAPIView(NewAPIView):
     serializer_class = ResetPasswordSerializer
     permission_classes = [AllowAny]
@@ -418,7 +416,7 @@ class ResetPasswordAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Authentication'])
     def post(self, request):
         """
-        **Reset Password**\n
+        **Reset Password - Public**\n
         Reset the user's password using the reset token obtained after OTP verification.
         
         **Request Body**\n
@@ -476,7 +474,6 @@ class ResetPasswordAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-
 class ChangePasswordAPIView(NewAPIView):
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
@@ -485,7 +482,7 @@ class ChangePasswordAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Authentication'])
     def post(self, request):
         """
-        **Change Password**\n
+        **Change Password - Authenticated Users**\n
         Allows authenticated users to change their password by providing old and new passwords.
 
         **Request Body**\n
