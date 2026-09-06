@@ -18,6 +18,26 @@ class UserSignUpView(NewAPIView):
 
     @swagger_auto_schema(tags=["Authentication"])
     def post(self, request, *args, **kwargs):
+        """
+        **User Sign Up API**\n
+        This API is used for user sign up process. User can sign up using email and password. OTP will be sent to the user's email address. User needs to verify the OTP to complete the sign up process.\n
+        
+        * Request Body:*
+            - first_name: (string) First name of the user
+            - last_name: (string) Last name of the user
+            - email: (string) Email of the user
+            - password: (string) Password of the user
+
+        * Response:*
+            - success: (boolean) True if signup successfull, False otherwise
+            - message: (string) Message indicating the status of the signup process
+            - user: (object) User object containing the details of the created user
+
+        * Status Codes:*
+            - 200: Signup successfull
+            - 400: Bad request (e.g., missing fields, user already exists)
+            - 500: Internal server error
+        """
         try:
             first_name = request.data.get("first_name")
             last_name = request.data.get("last_name")
