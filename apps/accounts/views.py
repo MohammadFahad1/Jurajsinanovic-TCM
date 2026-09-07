@@ -845,18 +845,23 @@ class PlanListCreateAPIView(NewAPIView):
                 "order": 1,
                 "features": [
                     {
+                        "id": 1,
                         "feature": "Full 24-question constitution assessment"
                     },
                     {
+                        "id": 2,
                         "feature": "Personalized organ & element insights"
                     },
                     {
+                        "id": 3,
                         "feature": "Saved assessment history & trends"
                     },
                     {
+                        "id": 4,
                         "feature": "Complete video library (Tai Chi, Qigong, etc)"
                     },
                     {
+                        "id": 5,
                         "feature": "Seasonal herbal & lifestyle plans"
                     }
                 ]
@@ -882,6 +887,238 @@ class PlanListCreateAPIView(NewAPIView):
                 "message": "Plan created successfully",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class PlanDetailUpdateDeleteAPIView(NewAPIView):
+    serializer_class = PlanSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'put', 'delete']
+
+    @swagger_auto_schema(tags=["Subscription Plan"])
+    def get(self, request, plan_id):
+        """
+        **Plan Detail API - Public**\n
+        This API is used for getting details of a specific plan.\n
+        * Response:*
+            - success: (boolean) True if plan detail retrieval successfull, False otherwise
+            - message: (string) Message indicating the status of the plan detail retrieval process
+            - data: (object) Plan details
+        
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan details retrieved successfully",
+            "data": {
+                "id": 1,
+                "name": "Trial",
+                "billing_period": "trial",
+                "price": 0,
+                "duration": 7,
+                "active": true,
+                "discount_note": "Free Trial",
+                "order": 1,
+                "features": [
+                    {
+                        "id": 1,
+                        "feature": "Full 24-question constitution assessment"
+                    },
+                    {
+                        "id": 2,
+                        "feature": "Personalized organ & element insights"
+                    },
+                    {
+                        "id": 3,
+                        "feature": "Saved assessment history & trends"
+                    },
+                    {
+                        "id": 4,
+                        "feature": "Complete video library (Tai Chi, Qigong, etc)"
+                    },
+                    {
+                        "id": 5,
+                        "feature": "Seasonal herbal & lifestyle plans"
+                    }
+                ]
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 500: Internal server error
+        """
+        try:
+            plan = Plan.objects.get(pk=plan_id)
+            serializer = PlanSerializer(plan)
+            return Response({
+                "success": True,
+                "message": "Plan details retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except Plan.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Plan not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=["Subscription Plan"])
+    def put(self, request, plan_id):
+        """
+        **Plan Update API - Admin Only**\n
+        This API is used for updating a plan.\n
+        * Request Body:*
+            - name: (string) Name of the plan
+            - billing_period: (string) Billing period of the plan
+            - price: (float) Price of the plan
+            - duration: (integer) Duration of the plan
+            - active: (boolean) Whether the plan is active
+            - discount_note: (string) Discount note of the plan
+            - order: (integer) Order of the plan
+            - features: (list) List of features. Each feature is an object with a 'feature' field.
+                - feature: (string) Name of the feature.
+        
+        * Response:*
+            - success: (boolean) True if plan update successfull, False otherwise
+            - message: (string) Message indicating the status of the plan update process
+            - data: (object) Updated plan
+        
+        **Example Request**\n
+        ```json
+        {
+            "name": "Trial",
+            "billing_period": "trial",
+            "price": 0,
+            "duration": 7,
+            "active": true,
+            "discount_note": "Free Trial",
+            "order": 1,
+            "features": [
+                {
+                    "feature": "Full 24-question constitution assessment"
+                },
+                {
+                    "feature": "Personalized organ & element insights"
+                },
+                {
+                    "feature": "Saved assessment history & trends"
+                },
+                {
+                    "feature": "Complete video library (Tai Chi, Qigong, etc)"
+                },
+                {
+                    "feature": "Seasonal herbal & lifestyle plans"
+                }
+            ]
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan updated successfully",
+            "data": {
+                "id": 1,
+                "name": "Trial",
+                "billing_period": "trial",
+                "price": 0,
+                "duration": 7,
+                "active": true,
+                "discount_note": "Free Trial",
+                "order": 1,
+                "features": [
+                    {
+                        "id": 1,
+                        "feature": "Full 24-question constitution assessment"
+                    },
+                    {
+                        "id": 2,
+                        "feature": "Personalized organ & element insights"
+                    },
+                    {
+                        "id": 3,
+                        "feature": "Saved assessment history & trends"
+                    },
+                    {
+                        "id": 4,
+                        "feature": "Complete video library (Tai Chi, Qigong, etc)"
+                    },
+                    {
+                        "id": 5,
+                        "feature": "Seasonal herbal & lifestyle plans"
+                    }
+                ]
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to update this plan.
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to update this plan."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            plan = Plan.objects.get(pk=plan_id)
+            serializer = PlanSerializer(plan, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Plan updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=["Subscription Plan"])
+    def delete(self, request, plan_id):
+        """
+        **Plan Delete API - Admin Only**\n
+        This API is used for deleting a plan.\n
+        * Response:*
+            - success: (boolean) True if plan deletion successfull, False otherwise
+            - message: (string) Message indicating the status of the plan deletion process
+        
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan deleted successfully"
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to delete this plan.
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to delete this plan."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            plan = Plan.objects.get(pk=plan_id)
+            plan.delete()
+            return Response({
+                "success": True,
+                "message": "Plan deleted successfully"
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({
                 "success": False,

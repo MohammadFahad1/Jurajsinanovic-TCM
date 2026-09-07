@@ -59,5 +59,74 @@ class UpdateUserProfileAPITestCase(TestCase):
 
     def test_unauthenticated_profile_update(self):
         unauthenticated_client = APIClient()
-        response = unauthenticated_client.put("/api/v1/auth/update-profile/", data={"first_name": "Hack"}, format="json")
+        response = unauthenticated_client.put("/api/v1/auth/me/", data={"first_name": "Hack"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class PlanUpdateTestCase(TestCase):
+    def setUp(self):
+        from accounts.models import Plan, PlanFeature
+        self.admin = User.objects.create_superuser(
+            email="admin@example.com",
+            password="AdminPassword123!",
+            first_name="Admin",
+            last_name="User"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.plan = Plan.objects.create(
+            name="Trial",
+            billing_period="trial",
+            price=0,
+            duration=14,
+            active=True,
+            discount_note="Free Trial",
+            order=1
+        )
+        PlanFeature.objects.create(plan=self.plan, feature="Old feature 1")
+
+    def test_plan_serializer_update(self):
+        from accounts.serializers import PlanSerializer
+        serializer = PlanSerializer(
+            instance=self.plan,
+            data={
+                "name": "Trial Updated",
+                "billing_period": "trial",
+                "price": 0,
+                "duration": 14,
+                "active": True,
+                "discount_note": "Free Trial",
+                "order": 1,
+                "features": [
+                    {"feature": "Full 24-question constitution assessment"},
+                    {"feature": "Personalized organ & element insights"}
+                ]
+            },
+            partial=True
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated_plan = serializer.save()
+        self.assertEqual(updated_plan.name, "Trial Updated")
+        features = list(updated_plan.features.values_list("feature", flat=True))
+        self.assertEqual(len(features), 2)
+        self.assertIn("Full 24-question constitution assessment", features)
+
+    def test_plan_update_api_view(self):
+        payload = {
+            "name": "Trial API",
+            "billing_period": "trial",
+            "price": 0,
+            "duration": 14,
+            "active": True,
+            "discount_note": "Free Trial",
+            "order": 1,
+            "features": [
+                {"feature": "Feature 1"},
+                {"feature": "Feature 2"}
+            ]
+        }
+        response = self.client.put(f"/api/v1/auth/plan/{self.plan.id}/", data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["message"], "Plan updated successfully")
+

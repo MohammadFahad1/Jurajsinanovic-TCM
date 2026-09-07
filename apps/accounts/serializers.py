@@ -7,7 +7,7 @@ User = get_user_model()
 class PlanFeatureSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanFeature
-        fields = ('feature',)
+        fields = ('id', 'feature',)
 
 class PlanSerializer(serializers.ModelSerializer):
     features = PlanFeatureSerializer(many=True)
@@ -24,11 +24,15 @@ class PlanSerializer(serializers.ModelSerializer):
         return plan
     
     def update(self, instance, validated_data):
-        features = validated_data.pop("features", [])
-        instance = Plan.objects.filter(pk=instance.pk).update(**validated_data)
-        PlanFeature.objects.filter(plan=instance).delete()
-        for feature in features:
-            PlanFeature.objects.create(plan=instance, **feature)
+        features = validated_data.pop("features", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        if features is not None:
+            PlanFeature.objects.filter(plan=instance).delete()
+            for feature in features:
+                PlanFeature.objects.create(plan=instance, **feature)
         return instance
 
 class UserSignUpSerializer(serializers.ModelSerializer):
