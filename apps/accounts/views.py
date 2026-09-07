@@ -11,18 +11,7 @@ from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from core.exceptions import _format_error_message
-from accounts.serializers import (
-    UserSignUpSerializer,
-    EmailSerializer,
-    EmailOTPSerializer,
-    EmailPasswordSerializer,
-    ResetPasswordSerializer,
-    ChangePasswordSerializer,
-    EmptySerializer,
-    UpdateUserProfileSerializer,
-    PlanSerializer,
-    PlanFeatureSerializer,
-)
+from accounts.serializers import (UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer, EmptySerializer, UpdateUserProfileSerializer, PlanSerializer, PlanFeatureSerializer)
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.models import Plan, PlanFeature
