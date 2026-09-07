@@ -44,7 +44,7 @@ urlpatterns = [
 
     # Mobile Application & React Dashboard API
     path('api/v1/auth/', include('apps.accounts.urls')),
-    path('api/v1/admin/', include('apps.admin.urls')),
+    path('api/v1/admin/', include('apps.custom_admin.urls')),
 ] + debug_toolbar_urls()
 
 # Serve media files during development
