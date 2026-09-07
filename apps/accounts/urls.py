@@ -2,6 +2,7 @@ from django.urls import path
 from accounts import views
 
 urlpatterns = [
+    # Authentication
     path('signup/', views.UserSignUpView.as_view(), name='signup'),
     path('resend-otp/activation/', views.ResendActivationEmailAPIView.as_view(), name='resend-otp-activation'),
     path('verify-email/', views.VerifyEmailAddressAPIView.as_view(), name='verify-email'),
@@ -11,6 +12,9 @@ urlpatterns = [
     path('reset-password/', views.ResetPasswordAPIView.as_view(), name='reset-password'),
     path('change-password/', views.ChangePasswordAPIView.as_view(), name='change-password'),
     path('me/', views.UserProfileAPIView.as_view(), name='me'),
-    path('delete-account/', views.DeleteUserAccountAPIView.as_view(), name='delete-account')
+    path('delete-account/', views.DeleteUserAccountAPIView.as_view(), name='delete-account'),
+
+    # Subscription Plan
+    path('plan/', views.PlanListCreateAPIView.as_view(), name='plan'),
 ]
 

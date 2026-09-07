@@ -20,9 +20,11 @@ from accounts.serializers import (
     ChangePasswordSerializer,
     EmptySerializer,
     UpdateUserProfileSerializer,
+    PlanSerializer,
 )
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
+from accounts.models import Plan, PlanFeature
 
 User = get_user_model()
 
@@ -747,3 +749,141 @@ class DeleteUserAccountAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+class PlanListCreateAPIView(NewAPIView):
+    serializer_class = PlanSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'post']
+
+    @swagger_auto_schema(tags=["Subscription Plan"])
+    def get(self, request):
+        """
+        **Plan List API - Public**\n
+        This API is used for getting list of plans.\n
+        * Response:*
+            - success: (boolean) True if list retrieval successfull, False otherwise
+            - message: (string) Message indicating the status of the list retrieval process
+            - data: (object) List of plans
+        """
+        try:
+            plans = Plan.objects.filter(active=True).order_by('order')
+            serializer = PlanSerializer(plans, many=True)
+            return Response({
+                "success": True,
+                "message": "Plans retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @swagger_auto_schema(tags=["Subscription Plan"])
+    def post(self, request):
+        """
+        **Plan Create API - Admin Only**\n
+        This API is used for creating a new plan.\n
+        * Request Body:*
+            - name: (string) Name of the plan
+            - billing_period: (string) Billing period of the plan
+            - price: (float) Price of the plan
+            - duration: (integer) Duration of the plan
+            - active: (boolean) Whether the plan is active
+            - discount_note: (string) Discount note of the plan
+            - order: (integer) Order of the plan
+            - features: (list) List of features. Each feature is an object with a 'feature' field.
+                - feature: (string) Name of the feature.
+        
+        * Response:*
+            - success: (boolean) True if plan creation successfull, False otherwise
+            - message: (string) Message indicating the status of the plan creation process
+            - data: (object) Created plan
+        
+        **Example Request**\n
+        ```json
+        {
+            "name": "Trial",
+            "billing_period": "trial",
+            "price": 0,
+            "duration": 7,
+            "active": true,
+            "discount_note": "Free Trial",
+            "order": 1,
+            "features": [
+                {
+                    "feature": "Full 24-question constitution assessment"
+                },
+                {
+                    "feature": "Personalized organ & element insights"
+                },
+                {
+                    "feature": "Saved assessment history & trends"
+                },
+                {
+                    "feature": "Complete video library (Tai Chi, Qigong, etc)"
+                },
+                {
+                    "feature": "Seasonal herbal & lifestyle plans"
+                }
+            ]
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan created successfully",
+            "data": {
+                "id": 1,
+                "name": "Trial",
+                "billing_period": "trial",
+                "price": 0,
+                "duration": 7,
+                "active": true,
+                "discount_note": "Free Trial",
+                "order": 1,
+                "features": [
+                    {
+                        "feature": "Full 24-question constitution assessment"
+                    },
+                    {
+                        "feature": "Personalized organ & element insights"
+                    },
+                    {
+                        "feature": "Saved assessment history & trends"
+                    },
+                    {
+                        "feature": "Complete video library (Tai Chi, Qigong, etc)"
+                    },
+                    {
+                        "feature": "Seasonal herbal & lifestyle plans"
+                    }
+                ]
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to create a plan.
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to create a plan."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            serializer = PlanSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Plan created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

@@ -4,6 +4,33 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+class PlanFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanFeature
+        fields = ('feature',)
+
+class PlanSerializer(serializers.ModelSerializer):
+    features = PlanFeatureSerializer(many=True)
+    class Meta:
+        model = Plan
+        fields = ('id', 'name', 'billing_period', 'price', 'duration', 'active', 'discount_note', 'order', 'features')
+        read_only_fields = ('id',)
+
+    def create(self, validated_data):
+        features = validated_data.pop("features", [])
+        plan = Plan.objects.create(**validated_data)
+        for feature in features:
+            PlanFeature.objects.create(plan=plan, **feature)
+        return plan
+    
+    def update(self, instance, validated_data):
+        features = validated_data.pop("features", [])
+        instance = Plan.objects.filter(pk=instance.pk).update(**validated_data)
+        PlanFeature.objects.filter(plan=instance).delete()
+        for feature in features:
+            PlanFeature.objects.create(plan=instance, **feature)
+        return instance
+
 class UserSignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
