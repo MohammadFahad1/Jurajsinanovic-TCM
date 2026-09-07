@@ -48,7 +48,7 @@ class UpdateUserProfileAPITestCase(TestCase):
             "last_name": "NewLast",
             "profile_picture": uploaded_image
         }
-        response = self.client.put("/api/v1/auth/update-profile/", data=payload, format="multipart")
+        response = self.client.put("/api/v1/auth/me/", data=payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["data"]["first_name"], "NewFirst")
@@ -129,4 +129,66 @@ class PlanUpdateTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["message"], "Plan updated successfully")
+
+
+class PlanFeatureAPITestCase(TestCase):
+    def setUp(self):
+        from accounts.models import Plan, PlanFeature
+        self.admin = User.objects.create_superuser(
+            email="admin2@example.com",
+            password="AdminPassword123!",
+            first_name="Admin",
+            last_name="User"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.plan = Plan.objects.create(
+            name="Pro Plan",
+            billing_period="monthly",
+            price=29.99,
+            duration=30,
+            active=True,
+            order=1
+        )
+        self.feature = PlanFeature.objects.create(plan=self.plan, feature="Initial Feature")
+
+    def test_plan_feature_list(self):
+        response = self.client.get("/api/v1/auth/plan-feature/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertIsInstance(response.data["data"], list)
+        self.assertEqual(len(response.data["data"]), 1)
+
+    def test_plan_feature_create(self):
+        payload = {
+            "plan": self.plan.id,
+            "feature": "New Created Feature"
+        }
+        response = self.client.post("/api/v1/auth/plan-feature/", data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["feature"], "New Created Feature")
+        self.assertEqual(response.data["data"]["plan"], self.plan.id)
+
+    def test_plan_feature_detail(self):
+        response = self.client.get(f"/api/v1/auth/plan-feature/{self.feature.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["feature"], "Initial Feature")
+
+    def test_plan_feature_update(self):
+        payload = {
+            "feature": "Updated Feature Name"
+        }
+        response = self.client.put(f"/api/v1/auth/plan-feature/{self.feature.id}/", data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["feature"], "Updated Feature Name")
+
+    def test_plan_feature_delete(self):
+        response = self.client.delete(f"/api/v1/auth/plan-feature/{self.feature.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["message"], "Plan feature deleted successfully")
+
 

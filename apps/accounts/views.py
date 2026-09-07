@@ -21,6 +21,7 @@ from accounts.serializers import (
     EmptySerializer,
     UpdateUserProfileSerializer,
     PlanSerializer,
+    PlanFeatureSerializer,
 )
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -1124,3 +1125,232 @@ class PlanDetailUpdateDeleteAPIView(NewAPIView):
                 "success": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class PlanFeatureCreateAPIView(NewAPIView):
+    serializer_class = PlanFeatureSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def post(self, request, *args, **kwargs):
+        """
+        **Plan Feature Create API - Admin Only**\n
+        This API is used for creating a plan feature.\n
+        * Request Body:*
+            - plan: (integer) ID of the plan
+            - feature: (string) Name of the feature
+        
+        * Response:*
+            - success: (boolean) True if plan feature creation successfull, False otherwise
+            - message: (string) Message indicating the status of the plan feature creation process
+            - data: (object) Created plan feature
+        
+        **Example Request**\n
+        ```json
+        {
+            "plan": 1,
+            "feature": "Full 24-question constitution assessment"
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan feature created successfully",
+            "data": {
+                "id": 1,
+                "plan": 1,
+                "feature": "Full 24-question constitution assessment"
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to create this plan feature.
+        - 400: Invalid request data
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to create this plan feature."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            serializer = PlanFeatureSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Plan feature created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class PlanFeatureDetailUpdateDeleteAPIView(NewAPIView):
+    serializer_class = PlanFeatureSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'put', 'delete']
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def get(self, request, feature_id):
+        """
+        **Plan Feature Detail API - Public**\n
+        This API is used for getting details of a specific plan feature.\n
+        * Response:*
+            - success: (boolean) True if plan feature detail retrieval successfull, False otherwise
+            - message: (string) Message indicating the status of the plan feature detail retrieval process
+            - data: (object) Plan feature details
+        
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan feature details retrieved successfully",
+            "data": {
+                "id": 1,
+                "plan": 1,
+                "feature": "Full 24-question constitution assessment"
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 404: Plan feature not found
+        - 500: Internal server error
+        """
+        try:
+            feature = PlanFeature.objects.get(pk=feature_id)
+            serializer = PlanFeatureSerializer(feature)
+            return Response({
+                "success": True,
+                "message": "Plan feature details retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except PlanFeature.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Plan feature not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def put(self, request, feature_id):
+        """
+        **Plan Feature Update API - Admin Only**\n
+        This API is used for updating a plan feature.\n
+        * Request Body:*
+            - plan: (integer, optional) ID of the plan
+            - feature: (string, optional) Name of the feature
+        
+        * Response:*
+            - success: (boolean) True if plan feature update successfull, False otherwise
+            - message: (string) Message indicating the status of the plan feature update process
+            - data: (object) Updated plan feature
+        
+        **Example Request**\n
+        ```json
+        {
+            "plan": 1,
+            "feature": "Full 24-question constitution assessment"
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan feature updated successfully",
+            "data": {
+                "id": 1,
+                "plan": 1,
+                "feature": "Full 24-question constitution assessment"
+            }
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to update this plan feature.
+        - 404: Plan feature not found
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to update this plan feature."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            feature = PlanFeature.objects.get(pk=feature_id)
+            serializer = PlanFeatureSerializer(feature, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({
+                "success": True,
+                "message": "Plan feature updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except PlanFeature.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Plan feature not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def delete(self, request, feature_id):
+        """
+        **Plan Feature Delete API - Admin Only**\n
+        This API is used for deleting a plan feature.\n
+        * Response:*
+            - success: (boolean) True if plan feature deletion successfull, False otherwise
+            - message: (string) Message indicating the status of the plan feature deletion process
+        
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Plan feature deleted successfully"
+        }
+        ```
+
+        **Error Responses**\n
+        - 403: You are not authorized to delete this plan feature.
+        - 404: Plan feature not found
+        - 500: Internal server error
+        """
+        if not request.user.is_authenticated or not request.user.is_superuser:
+            return Response({
+                "success": False,
+                "message": "You are not authorized to delete this plan feature."
+            }, status=status.HTTP_403_FORBIDDEN)
+        try:
+            feature = PlanFeature.objects.get(pk=feature_id)
+            feature.delete()
+            return Response({
+                "success": True,
+                "message": "Plan feature deleted successfully"
+            }, status=status.HTTP_200_OK)
+        except PlanFeature.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Plan feature not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+

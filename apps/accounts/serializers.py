@@ -5,9 +5,12 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class PlanFeatureSerializer(serializers.ModelSerializer):
+    plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), required=False, allow_null=True, default=None)
+
     class Meta:
         model = PlanFeature
-        fields = ('id', 'feature',)
+        fields = ('id', 'plan', 'feature')
+        validators = []
 
 class PlanSerializer(serializers.ModelSerializer):
     features = PlanFeatureSerializer(many=True)
@@ -20,6 +23,7 @@ class PlanSerializer(serializers.ModelSerializer):
         features = validated_data.pop("features", [])
         plan = Plan.objects.create(**validated_data)
         for feature in features:
+            feature.pop("plan", None)
             PlanFeature.objects.create(plan=plan, **feature)
         return plan
     
@@ -32,6 +36,7 @@ class PlanSerializer(serializers.ModelSerializer):
         if features is not None:
             PlanFeature.objects.filter(plan=instance).delete()
             for feature in features:
+                feature.pop("plan", None)
                 PlanFeature.objects.create(plan=instance, **feature)
         return instance
 

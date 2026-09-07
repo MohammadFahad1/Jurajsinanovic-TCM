@@ -17,5 +17,7 @@ urlpatterns = [
     # Subscription Plan
     path('plan/', views.PlanListCreateAPIView.as_view(), name='plan'),
     path('plan/<int:plan_id>/', views.PlanDetailUpdateDeleteAPIView.as_view(), name='plan'),
+    path('plan-feature/', views.PlanFeatureCreateAPIView.as_view(), name='plan-feature-create'),
+    path('plan-feature/<int:feature_id>/', views.PlanFeatureDetailUpdateDeleteAPIView.as_view(), name='plan-feature-detail-update-delete'),
 ]
 
