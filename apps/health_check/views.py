@@ -100,7 +100,7 @@ class QuestionListCreateView(NewAPIView):
     ])
     def get(self, request, *args, **kwargs):
         """
-        **Get a list of questions**\n
+        **Get a list of questions - Public**\n
         This API is used for retrieving a list of questions along with their associated answers.\n
         * Query Parameters:*
             - page: (integer) Page number (default: 1)
@@ -168,3 +168,171 @@ class QuestionListCreateView(NewAPIView):
         questions = Question.objects.prefetch_related('answers').all()
         serializer = self.get_serializer(questions, many=True)
         return AutoPaginatedResponse(serializer.data, request=request)
+
+class QuestionDetailAPIView(NewAPIView):
+    serializer_class = QuestionSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'put', 'delete']
+
+    def get_object(self, question_id=None):
+        if question_id is None:
+            question_id = self.kwargs.get('question_id') or self.kwargs.get('pk') or self.kwargs.get('id')
+        try:
+            return Question.objects.prefetch_related('answers').get(pk=question_id)
+        except Question.DoesNotExist:
+            return None
+
+    @swagger_auto_schema(tags=['Health Check'], responses={200: QuestionSerializer()})
+    def get(self, request, question_id=None, *args, **kwargs):
+        """
+        **Get a specific question by ID - Admin Only**\n
+        This API is used for retrieving a specific question along with its associated answers.
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) Question object
+                - id: (integer) Question ID
+                - title: (string) Question text / title
+                - answers: (array) Array of answer objects
+                    - id: (integer) Answer ID
+                    - answer: (string) Answer text
+                    - score: (integer) Answer score
+                    - created_at: (string) Timestamp when answer was created
+                    - updated_at: (string) Timestamp when answer was last updated
+                - option_count: (integer) Number of answer options associated with the question
+                - created_at: (string) Timestamp when question was created
+                - updated_at: (string) Timestamp when question was last updated
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "title": "How often do you feel tired during the day?",
+                "answers": [
+                    {
+                        "id": 1,
+                        "answer": "Rarely",
+                        "score": 1,
+                        "created_at": "2026-09-12T11:35:28.000Z",
+                        "updated_at": "2026-09-12T11:35:28.000Z"
+                    }
+                ],
+                "option_count": 1,
+                "created_at": "2026-09-12T11:35:28.000Z",
+                "updated_at": "2026-09-12T11:35:28.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Question retrieved successfully
+            - 403: Forbidden (Admin access required)
+            - 404: Question not found
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        question = self.get_object(question_id=question_id)
+        if not question:
+            return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(question)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+    
+    @swagger_auto_schema(tags=['Health Check'], request_body=QuestionSerializer)
+    def put(self, request, question_id=None, *args, **kwargs):
+        """
+        **Update a specific question by ID - Admin Only**\n
+        This API is used for updating a specific question along with its associated answers.
+
+        * Request:*
+            - title: (string) Question text / title
+            - answers: (array) Array of answer objects
+                - answer: (string) Answer text
+                - score: (integer) Answer score
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) Question object
+                - id: (integer) Question ID
+                - title: (string) Question text / title
+                - answers: (array) Array of answer objects
+                    - id: (integer) Answer ID
+                    - answer: (string) Answer text
+                    - score: (integer) Answer score
+                    - created_at: (string) Timestamp when answer was created
+                    - updated_at: (string) Timestamp when answer was last updated
+                - option_count: (integer) Number of answer options associated with the question
+                - created_at: (string) Timestamp when question was created
+                - updated_at: (string) Timestamp when question was last updated
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "title": "How often do you feel tired during the day?",
+                "answers": [
+                    {
+                        "id": 1,
+                        "answer": "Rarely",
+                        "score": 1,
+                        "created_at": "2026-09-12T11:35:28.000Z",
+                        "updated_at": "2026-09-12T11:35:28.000Z"
+                    }
+                ],
+                "option_count": 1,
+                "created_at": "2026-09-12T11:35:28.000Z",
+                "updated_at": "2026-09-12T11:35:28.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Question updated successfully
+            - 400: Bad request (Invalid data)
+            - 403: Forbidden (Admin access required)
+            - 404: Not found (Question not found)
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        question = self.get_object(question_id=question_id)
+        if not question:
+            return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(question, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        question = serializer.save()
+        return Response({"success": True, "data": self.get_serializer(question).data}, status=status.HTTP_200_OK)
+    
+    @swagger_auto_schema(tags=['Health Check'], responses={200: "Success"})
+    def delete(self, request, question_id=None, *args, **kwargs):
+        """
+        **Delete a specific question by ID - Admin Only**\n
+        This API is used for deleting a specific question along with its associated answers.
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (string) Message indicating successful deletion
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": "Question deleted successfully"
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Question deleted successfully
+            - 403: Forbidden (Admin access required)
+            - 404: Not found (Question not found)
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        question = self.get_object(question_id=question_id)
+        if not question:
+            return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        question.delete()
+        return Response({"success": True, "data": "Question deleted successfully"}, status=status.HTTP_200_OK)
+

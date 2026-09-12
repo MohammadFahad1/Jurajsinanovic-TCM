@@ -25,4 +25,16 @@ class QuestionSerializer(serializers.ModelSerializer):
             Answer.objects.create(question=question, **answer_data)
         return question
 
+    def update(self, instance, validated_data):
+        answers_data = validated_data.pop('answers', None)
+        instance.title = validated_data.get('title', instance.title)
+        instance.save()
+
+        if answers_data is not None:
+            instance.answers.all().delete()
+            for answer_data in answers_data:
+                Answer.objects.create(question=instance, **answer_data)
+
+        return instance
+
 
