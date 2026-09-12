@@ -107,7 +107,10 @@ class AutoPaginatedResponse(Response):
             # 🎯 FILTERING (all fields)
             # =========================
             # Example: ?vehicle_type=suv&district=dhaka
-            reserved_keys = {"page", "page_size", "search", "search_query", "q", "name", "ordering"}
+            reserved_keys = {
+                "page", "page_size", "search", "search_query", "q", "name",
+                "ordering", "order_by", "order_direction", "format"
+            }
 
             for key, value in query_params.items():
                 if key in reserved_keys or value is None or str(value).strip() == "":
@@ -139,9 +142,11 @@ class AutoPaginatedResponse(Response):
             # =========================
             # ↕️ ORDERING
             # =========================
-            ordering = query_params.get("ordering")
+            ordering = query_params.get("ordering") or query_params.get("order_by")
+            order_direction = (query_params.get("order_direction") or "").lower()
+
             if ordering:
-                reverse = ordering.startswith("-")
+                reverse = ordering.startswith("-") or order_direction in ["desc", "descending"]
                 field = ordering.lstrip("-")
 
                 try:

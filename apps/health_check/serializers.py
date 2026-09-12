@@ -8,10 +8,21 @@ class AnswerSerializer(serializers.ModelSerializer):
 
 
 class QuestionSerializer(serializers.ModelSerializer):
-    answers = AnswerSerializer(many=True, read_only=True)
+    answers = AnswerSerializer(many=True, required=False)
+    option_count = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Question
-        fields = ['id', 'title', 'answers', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'answers', 'option_count', 'created_at', 'updated_at']
+
+    def get_option_count(self, obj):
+        return obj.answers.count()
+
+    def create(self, validated_data):
+        answers_data = validated_data.pop('answers', [])
+        question = Question.objects.create(**validated_data)
+        for answer_data in answers_data:
+            Answer.objects.create(question=question, **answer_data)
+        return question
 
 
