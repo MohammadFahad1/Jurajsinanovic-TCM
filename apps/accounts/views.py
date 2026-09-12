@@ -11,10 +11,10 @@ from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from core.exceptions import _format_error_message
-from accounts.serializers import (UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer, EmptySerializer, UpdateUserProfileSerializer, PlanSerializer, PlanFeatureSerializer)
-from accounts.tasks import send_activation_otp_email, send_reset_otp_email
+from accounts.serializers import (UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer, EmptySerializer, UpdateUserProfileSerializer, PlanSerializer, PlanFeatureSerializer, HealthProfileSerializer)
+from accounts.tasks import send_activation_otp_email, send_reset_otp_email 
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import Plan, PlanFeature
+from accounts.models import Plan, PlanFeature, HealthProfile
 
 User = get_user_model()
 
@@ -1342,4 +1342,110 @@ class PlanFeatureDetailUpdateDeleteAPIView(NewAPIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+class UserHealthProfileAPIView(NewAPIView):
+    serializer_class = HealthProfileSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'put']
 
+    @swagger_auto_schema(tags=['Health Profile'])
+    def get(self, request):
+        """
+        **Get User Health Profile - Authenticated Users**\n
+        Retrieves the health profile of the authenticated user.
+
+        **Responses**\n
+        - 200: Health profile retrieved successfully
+        - 401: Unauthorized
+        - 404: Health profile not found
+        """
+        try:
+            health_profile = request.user.health_profile
+            serializer = HealthProfileSerializer(health_profile)
+            return Response({
+                "success": True,
+                "message": "Health profile retrieved successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except HealthProfile.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Health profile not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=['Health Profile'])
+    def post(self, request):
+        """
+        **Create User Health Profile - Authenticated Users**\n
+        Creates a health profile for the authenticated user.
+
+        **Request Body**\n
+        - dob: (date) Date of birth
+        - height: (string) Height
+        - weight: (string) Weight
+        - blood_group: (string) Blood group
+        - sleep_hours: (string) Sleep hours
+        - cycle: (string) Cycle information
+        - diet: (string) Diet information
+        - mind_health: (list) Mind health information
+
+        **Responses**\n
+        - 201: Health profile created successfully
+        - 400: Bad request
+        - 401: Unauthorized
+        """
+        try:
+            serializer = HealthProfileSerializer(data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            health_profile = serializer.save()
+            return Response({
+                "success": True,
+                "message": "Health profile created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(tags=['Health Profile'])
+    def put(self, request):
+        """
+        **Update User Health Profile - Authenticated Users**\n
+        Updates the health profile of the authenticated user.
+
+        **Request Body**\n
+        - dob: (date) Date of birth
+        - height: (string) Height
+        - weight: (string) Weight
+        - blood_group: (string) Blood group
+        - sleep_hours: (string) Sleep hours
+        - cycle: (string) Cycle information
+        - diet: (string) Diet information
+        - mind_health: (list) Mind health information
+
+        **Responses**\n
+        - 200: Health profile updated successfully
+        - 400: Bad request
+        - 401: Unauthorized
+        """
+        try:
+            health_profile = request.user.health_profile
+            serializer = HealthProfileSerializer(health_profile, data=request.data, partial=True, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            health_profile = serializer.save()
+            return Response({
+                "success": True,
+                "message": "Health profile updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)

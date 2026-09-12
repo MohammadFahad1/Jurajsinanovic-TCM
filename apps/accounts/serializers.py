@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from accounts.models import Plan, PlanFeature
+from accounts.models import Plan, PlanFeature, HealthProfile
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -83,4 +83,26 @@ class UpdateUserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ('first_name', 'last_name', 'profile_picture')
 
+class HealthProfileSerializer(serializers.Serializer):
+    dob = serializers.DateField(required=False, allow_null=True)
+    height = serializers.CharField(required=False, allow_blank=True)
+    weight = serializers.CharField(required=False, allow_blank=True)
+    blood_group = serializers.CharField(required=False, allow_blank=True)
+    sleep_hours = serializers.CharField(required=False, allow_blank=True)
+    cycle = serializers.CharField(required=False, allow_blank=True)
+    diet = serializers.CharField(required=False, allow_blank=True)
+    mind_health = serializers.ListField(child=serializers.CharField(), required=False, allow_empty=True)
 
+    def create(self, validated_data):
+        user = self.context['request'].user
+        health_profile, created = HealthProfile.objects.get_or_create(user=user)
+        for attr, value in validated_data.items():
+            setattr(health_profile, attr, value)
+        health_profile.save()
+        return health_profile
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

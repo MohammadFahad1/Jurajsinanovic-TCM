@@ -88,7 +88,7 @@ class User(AbstractUser):
         ordering = ['is_superuser', '-created_at']
 
 class HealthProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='health_profiles')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='health_profile')
     dob = models.DateField(null=True, blank=True)
     height = models.CharField(max_length=10, null=True, blank=True)
     weight = models.CharField(max_length=10, null=True, blank=True)
