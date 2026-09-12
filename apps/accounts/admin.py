@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from accounts.models import User, Plan, PlanFeature
+from accounts.models import User, Plan, PlanFeature, HealthProfile
 
 admin.site.unregister(Group)
 
@@ -212,4 +212,4 @@ class CustomUserAdmin(BaseUserAdmin):
     def mark_as_deleted(self, request, queryset):
         queryset.update(status=User.DELETED)
 
-
+admin.site.register(HealthProfile)

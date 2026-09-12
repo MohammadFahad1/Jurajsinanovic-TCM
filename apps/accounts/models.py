@@ -87,4 +87,24 @@ class User(AbstractUser):
         verbose_name_plural = 'Users'
         ordering = ['is_superuser', '-created_at']
 
+class HealthProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='health_profiles')
+    dob = models.DateField(null=True, blank=True)
+    height = models.CharField(max_length=10, null=True, blank=True)
+    weight = models.CharField(max_length=10, null=True, blank=True)
+    blood_group = models.CharField(max_length=5, null=True, blank=True)
+    sleep_hours = models.CharField(max_length=10, null=True, blank=True)
+    cycle = models.CharField(max_length=10, null=True, blank=True)
+    diet = models.CharField(max_length=255, null=True, blank=True)
+    mind_health = models.JSONField(default=list, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Health Profile of {self.user.first_name} {self.user.last_name} ({self.user.email})"
+    
+    class Meta:
+        verbose_name = 'Health Profile'
+        verbose_name_plural = 'Health Profiles'
+
 
