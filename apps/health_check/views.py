@@ -336,3 +336,261 @@ class QuestionDetailAPIView(NewAPIView):
         question.delete()
         return Response({"success": True, "data": "Question deleted successfully"}, status=status.HTTP_200_OK)
 
+class AnswerListCreateAPIView(NewAPIView):
+    serializer_class = AnswerSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'post']
+
+    def get_question(self, question_id):
+        try:
+            return Question.objects.get(pk=question_id)
+        except Question.DoesNotExist:
+            return None
+
+    @swagger_auto_schema(tags=['Health Check'], responses={200: AnswerSerializer(many=True)})
+    def get(self, request, question_id=None, *args, **kwargs):
+        """
+        **Get all answer options for a question - Public**\n
+        This API is used for retrieving all answer options associated with a specific question.
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (array) Array of answer objects
+                - id: (integer) Answer ID
+                - question: (integer) Question ID
+                - answer: (string) Answer text
+                - score: (integer) Answer score
+                - created_at: (string) Timestamp when answer was created
+                - updated_at: (string) Timestamp when answer was last updated
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": [
+                {
+                    "id": 1,
+                    "question": 1,
+                    "answer": "Rarely",
+                    "score": 1,
+                    "created_at": "2026-09-12T11:35:28.000Z",
+                    "updated_at": "2026-09-12T11:35:28.000Z"
+                }
+            ]
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Answers retrieved successfully
+            - 404: Question not found
+        """
+        question = self.get_question(question_id)
+        if not question:
+            return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        answers = question.answers.all()
+        serializer = self.get_serializer(answers, many=True)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(tags=['Health Check'], request_body=AnswerSerializer, responses={201: AnswerSerializer()})
+    def post(self, request, question_id=None, *args, **kwargs):
+        """
+        **Add an answer option to a question - Admin Only**\n
+        This API is used for adding a new answer option to a specific question.
+
+        * Request Body:*
+            - answer: (string) Answer text (required)
+            - score: (integer) Answer score (default: 0)
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) Created answer object
+                - id: (integer) Answer ID
+                - question: (integer) Question ID
+                - answer: (string) Answer text
+                - score: (integer) Answer score
+                - created_at: (string) Timestamp when answer was created
+                - updated_at: (string) Timestamp when answer was last updated
+
+        **Example Request**\n
+        ```json
+        {
+            "answer": "Rarely",
+            "score": 1
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "question": 1,
+                "answer": "Rarely",
+                "score": 1,
+                "created_at": "2026-09-12T11:35:28.000Z",
+                "updated_at": "2026-09-12T11:35:28.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 201: Answer created successfully
+            - 400: Bad request (Invalid data)
+            - 403: Forbidden (Admin access required)
+            - 404: Question not found
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        question = self.get_question(question_id)
+        if not question:
+            return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        answer = serializer.save(question=question)
+        return Response({"success": True, "data": self.get_serializer(answer).data}, status=status.HTTP_201_CREATED)
+
+class AnswerDetailAPIView(NewAPIView):
+    serializer_class = AnswerSerializer
+    permission_classes = [AllowAny]
+    http_method_names = ['get', 'put', 'delete']
+
+    def get_object(self, answer_id=None):
+        if answer_id is None:
+            answer_id = self.kwargs.get('answer_id') or self.kwargs.get('pk') or self.kwargs.get('id')
+        try:
+            return Answer.objects.get(pk=answer_id)
+        except Answer.DoesNotExist:
+            return None
+
+    @swagger_auto_schema(tags=['Health Check'], responses={200: AnswerSerializer()})
+    def get(self, request, answer_id=None, *args, **kwargs):
+        """
+        **Get a specific answer option by ID - Public**\n
+        This API is used for retrieving details of a specific answer option by its ID.
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) Answer object
+                - id: (integer) Answer ID
+                - question: (integer) Question ID
+                - answer: (string) Answer text
+                - score: (integer) Answer score
+                - created_at: (string) Timestamp when answer was created
+                - updated_at: (string) Timestamp when answer was last updated
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "question": 1,
+                "answer": "Rarely",
+                "score": 1,
+                "created_at": "2026-09-12T11:35:28.000Z",
+                "updated_at": "2026-09-12T11:35:28.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Answer retrieved successfully
+            - 404: Answer not found
+        """
+        answer = self.get_object(answer_id=answer_id)
+        if not answer:
+            return Response({"success": False, "message": "Answer not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(answer)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(tags=['Health Check'], request_body=AnswerSerializer)
+    def put(self, request, answer_id=None, *args, **kwargs):
+        """
+        **Update a specific answer option by ID - Admin Only**\n
+        This API is used for updating a specific answer option by its ID.
+
+        * Request Body:*
+            - answer: (string, optional) Answer text
+            - score: (integer, optional) Answer score
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) Answer object
+                - id: (integer) Answer ID
+                - question: (integer) Question ID
+                - answer: (string) Answer text
+                - score: (integer) Answer score
+                - created_at: (string) Timestamp when answer was created
+                - updated_at: (string) Timestamp when answer was last updated
+
+        **Example Request**\n
+        ```json
+        {
+            "answer": "Often",
+            "score": 2
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": {
+                "id": 1,
+                "question": 1,
+                "answer": "Often",
+                "score": 2,
+                "created_at": "2026-09-12T11:35:28.000Z",
+                "updated_at": "2026-09-12T11:35:28.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Answer updated successfully
+            - 400: Bad request (Invalid data)
+            - 403: Forbidden (Admin access required)
+            - 404: Answer not found
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        answer = self.get_object(answer_id=answer_id)
+        if not answer:
+            return Response({"success": False, "message": "Answer not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(answer, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        answer = serializer.save()
+        return Response({"success": True, "data": self.get_serializer(answer).data}, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(tags=['Health Check'], responses={200: "Success"})
+    def delete(self, request, answer_id=None, *args, **kwargs):
+        """
+        **Delete a specific answer option by ID - Admin Only**\n
+        This API is used for deleting a specific answer option by its ID.
+
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (string) Message indicating successful deletion
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": "Answer deleted successfully"
+        }
+        ```
+
+        * Status Codes:*
+            - 200: Answer deleted successfully
+            - 403: Forbidden (Admin access required)
+            - 404: Answer not found
+        """
+        if not request.user.is_authenticated or not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+        answer = self.get_object(answer_id=answer_id)
+        if not answer:
+            return Response({"success": False, "message": "Answer not found."}, status=status.HTTP_404_NOT_FOUND)
+        answer.delete()
+        return Response({"success": True, "data": "Answer deleted successfully"}, status=status.HTTP_200_OK)
+

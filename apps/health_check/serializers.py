@@ -4,7 +4,8 @@ from health_check.models import Question, Answer
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Answer
-        fields = ['id', 'answer', 'score', 'created_at', 'updated_at']
+        fields = ['id', 'question', 'answer', 'score', 'created_at', 'updated_at']
+        read_only_fields = ['question']
 
 
 class QuestionSerializer(serializers.ModelSerializer):
