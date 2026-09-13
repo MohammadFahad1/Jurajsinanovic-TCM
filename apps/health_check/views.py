@@ -6,10 +6,11 @@ from core.base import NewAPIView, AutoPaginatedResponse
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from accounts.models import FreeUsageThreshold
 
 class QuestionListCreateView(NewAPIView):
     serializer_class = QuestionSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(tags=['Health Check'], request_body=QuestionSerializer, responses={201: QuestionSerializer})
     def post(self, request, *args, **kwargs):
@@ -100,7 +101,7 @@ class QuestionListCreateView(NewAPIView):
     ])
     def get(self, request, *args, **kwargs):
         """
-        **Get a list of questions - Public**\n
+        **Get a list of questions - Authenticated Users**\n
         This API is used for retrieving a list of questions along with their associated answers.\n
         * Query Parameters:*
             - page: (integer) Page number (default: 1)
@@ -165,13 +166,14 @@ class QuestionListCreateView(NewAPIView):
         * Status Codes:*
             - 200: Questions retrieved successfully
         """
-        questions = Question.objects.prefetch_related('answers').all()
+        free_usage = FreeUsageThreshold.objects.first().health_check_questions if FreeUsageThreshold.objects.exists() else 5
+        questions = Question.objects.prefetch_related('answers').all()[:free_usage]
         serializer = self.get_serializer(questions, many=True)
         return AutoPaginatedResponse(serializer.data, request=request)
 
 class QuestionDetailAPIView(NewAPIView):
     serializer_class = QuestionSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'put', 'delete']
 
     def get_object(self, question_id=None):
@@ -185,7 +187,7 @@ class QuestionDetailAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Health Check'], responses={200: QuestionSerializer()})
     def get(self, request, question_id=None, *args, **kwargs):
         """
-        **Get a specific question by ID - Admin Only**\n
+        **Get a specific question by ID - Authenticated Users**\n
         This API is used for retrieving a specific question along with its associated answers.
 
         * Response:*
@@ -231,8 +233,6 @@ class QuestionDetailAPIView(NewAPIView):
             - 403: Forbidden (Admin access required)
             - 404: Question not found
         """
-        if not request.user.is_authenticated or not request.user.is_staff:
-            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
         question = self.get_object(question_id=question_id)
         if not question:
             return Response({"success": False, "message": "Question not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -338,7 +338,7 @@ class QuestionDetailAPIView(NewAPIView):
 
 class AnswerListCreateAPIView(NewAPIView):
     serializer_class = AnswerSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post']
 
     def get_question(self, question_id):
@@ -350,7 +350,7 @@ class AnswerListCreateAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Health Check'], responses={200: AnswerSerializer(many=True)})
     def get(self, request, question_id=None, *args, **kwargs):
         """
-        **Get all answer options for a question - Public**\n
+        **Get all answer options for a question - Authenticated Users**\n
         This API is used for retrieving all answer options associated with a specific question.
 
         * Response:*
@@ -452,7 +452,7 @@ class AnswerListCreateAPIView(NewAPIView):
 
 class AnswerDetailAPIView(NewAPIView):
     serializer_class = AnswerSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'put', 'delete']
 
     def get_object(self, answer_id=None):
@@ -466,7 +466,7 @@ class AnswerDetailAPIView(NewAPIView):
     @swagger_auto_schema(tags=['Health Check'], responses={200: AnswerSerializer()})
     def get(self, request, answer_id=None, *args, **kwargs):
         """
-        **Get a specific answer option by ID - Public**\n
+        **Get a specific answer option by ID - Authenticated Users**\n
         This API is used for retrieving details of a specific answer option by its ID.
 
         * Response:*
@@ -593,4 +593,6 @@ class AnswerDetailAPIView(NewAPIView):
             return Response({"success": False, "message": "Answer not found."}, status=status.HTTP_404_NOT_FOUND)
         answer.delete()
         return Response({"success": True, "data": "Answer deleted successfully"}, status=status.HTTP_200_OK)
+
+
 
