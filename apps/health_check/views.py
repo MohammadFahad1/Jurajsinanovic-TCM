@@ -1,7 +1,7 @@
 from accounts.serializers import EmptySerializer
 from rest_framework.response import Response
-from health_check.models import Question, Answer
-from health_check.serializers import QuestionSerializer, AnswerSerializer
+from health_check.models import Question, Answer, UserCheckIn, UserAnswer
+from health_check.serializers import QuestionSerializer, AnswerSerializer, UserCheckInSerializer, UserCheckinAnswerSerializer
 from rest_framework import status
 from core.base import NewAPIView, AutoPaginatedResponse
 from drf_yasg.utils import swagger_auto_schema
@@ -641,5 +641,11 @@ class UserCheckInListCreateAPIView(NewAPIView):
             - 200: User check-ins retrieved successfully
         """
         user_check_ins = UserCheckIn.objects.filter(user=request.user)
-        serializer = UserCheckInSerializer(user_check_ins, many=True)
+        serializer = UserCheckInSerializer(user_check_ins, many=True, context={'request': request})
         return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        """
+        **Create a new user check-in**
+        """
+        pass

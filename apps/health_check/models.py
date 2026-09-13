@@ -48,6 +48,10 @@ class UserCheckIn(models.Model):
     def calculate_score(self):
         """Calculate total score from all answers in this check-in."""
         return self.answers.aggregate(models.Sum('answer__score'))['answer__score__sum'] or 0
+    
+    class Meta:
+        verbose_name = 'User Check-in'
+        verbose_name_plural = 'User Check-ins'
 
 class UserAnswer(models.Model):
     check_in = models.ForeignKey(UserCheckIn, on_delete=models.CASCADE, related_name='answers')
@@ -59,5 +63,10 @@ class UserAnswer(models.Model):
 
     def __str__(self):
         return f"Answer by {self.check_in.user} to {self.question} at {self.created_at}"
+
+    class Meta:
+        unique_together = ['check_in', 'question']
+        verbose_name = 'User Answer'
+        verbose_name_plural = 'User Answers'
 
 
