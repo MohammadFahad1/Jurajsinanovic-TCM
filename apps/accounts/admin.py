@@ -3,7 +3,7 @@ from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from accounts.models import User, Plan, PlanFeature, HealthProfile
+from accounts.models import User, Plan, PlanFeature, HealthProfile, Payment, FreeUsageThreshold
 
 admin.site.unregister(Group)
 
@@ -213,3 +213,6 @@ class CustomUserAdmin(BaseUserAdmin):
         queryset.update(status=User.DELETED)
 
 admin.site.register(HealthProfile)
+admin.site.register(Payment)
+admin.site.register(FreeUsageThreshold)
+

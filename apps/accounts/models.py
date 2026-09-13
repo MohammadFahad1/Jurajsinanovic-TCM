@@ -129,7 +129,18 @@ class Payment(models.Model):
     def __str__(self):
         return f"Payment #{self.pk} - {self.user.email} - ${self.amount} - {self.status}"
 
-
+class FreeUsageThreshold(models.Model):
+    health_check_questions = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Free Usage Threshold - Health Checkup: {self.health_check_questions}"
+    
+    class Meta:
+        verbose_name = 'Free Usage Threshold'
+        verbose_name_plural = 'Free Usage Thresholds'
+        ordering = ['id']
 
 
 
