@@ -22,5 +22,9 @@ urlpatterns = [
     
     # Health Profile
     path('health-profile/', views.UserHealthProfileAPIView.as_view(), name='health-profile'),
+
+    # Payment & Webhook
+    path('create-checkout-session/<int:plan_id>/', views.CreateCheckoutSessionAPIView.as_view(), name='create-checkout-session'),
+    path('stripe/webhook/', views.stripe_webhook, name='stripe-webhook'),
 ]
 

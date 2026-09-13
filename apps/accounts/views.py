@@ -14,7 +14,14 @@ from core.exceptions import _format_error_message
 from accounts.serializers import (UserSignUpSerializer, EmailSerializer, EmailOTPSerializer, EmailPasswordSerializer, ResetPasswordSerializer, ChangePasswordSerializer, EmptySerializer, UpdateUserProfileSerializer, PlanSerializer, PlanFeatureSerializer, HealthProfileSerializer)
 from accounts.tasks import send_activation_otp_email, send_reset_otp_email 
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import Plan, PlanFeature, HealthProfile
+from accounts.models import Plan, PlanFeature, HealthProfile, Payment
+from django.conf import settings
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+import stripe
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+import json
 
 User = get_user_model()
 
@@ -1118,7 +1125,17 @@ class PlanDetailUpdateDeleteAPIView(NewAPIView):
 class PlanFeatureCreateAPIView(NewAPIView):
     serializer_class = PlanFeatureSerializer
     permission_classes = [AllowAny]
-    http_method_names = ['post']
+    http_method_names = ['get', 'post']
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def get(self, request, *args, **kwargs):
+        features = PlanFeature.objects.all()
+        serializer = PlanFeatureSerializer(features, many=True)
+        return Response({
+            "success": True,
+            "message": "Plan features retrieved successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(tags=['Subscription Plan'])
     def post(self, request, *args, **kwargs):
@@ -1449,3 +1466,147 @@ class UserHealthProfileAPIView(NewAPIView):
                 "success": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+class CreateCheckoutSessionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(tags=['Subscription Plan'])
+    def post(self, request, plan_id=None):
+        """
+        **Create Stripe Checkout Session - Authenticated Users**\n
+        Creates a Stripe checkout session for the specified plan.\n
+
+        * Request Body / Parameters:*
+            - plan_id: (integer) ID of the plan to purchase (can be passed via URL parameter or JSON request body)
+
+        * Response:*
+            - success: (boolean) True if checkout session created successfully, False otherwise
+            - message: (string) Message indicating the status of the checkout session creation
+            - data: (object) Object containing the `checkout_url`
+
+        **Example Request**\n
+        ```json
+        {
+            "plan_id": 1
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "Checkout session created successfully",
+            "data": {
+                "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5"
+            }
+        }
+        ```
+
+        **Status Codes**\n
+        - 200: Checkout session created successfully
+        - 400: Bad request (e.g., missing plan_id or Stripe error)
+        - 401: Unauthorized
+        - 404: Plan not found
+        """
+        user = request.user
+        plan_id = plan_id or request.data.get("plan_id")
+        if not plan_id:
+            return Response({
+                "success": False,
+                "message": "plan_id is required."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        plan = get_object_or_404(Plan, id=plan_id)
+    
+        try:
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                mode='payment',
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': plan.name,
+                        },
+                        'unit_amount': int(plan.price * 100),  # Stripe expects cents
+                    },
+                    'quantity': 1,
+                }],
+                metadata={
+                    'user_id': user.id,
+                    'plan_id': plan.id
+                },
+                success_url=f"{frontend_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{frontend_url}/payment-cancelled/",
+            )
+    
+            # Create a pending payment record
+            Payment.objects.create(
+                user=user,
+                plan=plan,
+                amount=plan.price,
+                payment_method='stripe',
+                transaction_id=session.id,
+                status=Payment.PENDING
+            )
+    
+            return Response({
+                "success": True,
+                "message": "Checkout session created successfully",
+                "data": {
+                    "checkout_url": session.url
+                }
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)    
+
+@csrf_exempt
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    event = None
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except (ValueError, stripe.error.SignatureVerificationError):
+        return HttpResponse(status=400)
+
+    # Handle successful payment
+    if event and event.get('type') == 'checkout.session.completed':
+        session = event['data']['object']
+
+        # Update payment status looking up by transaction_id (Stripe Checkout Session ID)
+        payment = Payment.objects.filter(transaction_id=session['id']).first()
+        if not payment and 'metadata' in session:
+            user_id = session['metadata'].get('user_id')
+            plan_id = session['metadata'].get('plan_id')
+            if user_id and plan_id:
+                payment = Payment.objects.filter(user_id=user_id, plan_id=plan_id, status=Payment.PENDING).last()
+
+        if payment:
+            payment.status = Payment.SUCCESSFUL
+            if session.get('payment_intent'):
+                payment.transaction_id = session['payment_intent']
+            payment.save()
+
+            # Update user's plan info
+            user = payment.user
+            user.plan = payment.plan
+            user.plan_start_date = timezone.now()
+            user.plan_price = payment.amount
+            user.status = User.ACTIVE
+            user.save()
+
+    return HttpResponse(status=200)
+

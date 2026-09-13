@@ -192,3 +192,88 @@ class PlanFeatureAPITestCase(TestCase):
         self.assertEqual(response.data["message"], "Plan feature deleted successfully")
 
 
+from unittest.mock import patch, MagicMock
+
+class StripePaymentAPITestCase(TestCase):
+    def setUp(self):
+        from accounts.models import Plan, Payment
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="paymentuser@example.com",
+            password="TestPassword123!",
+            first_name="Payment",
+            last_name="User",
+            is_active=True
+        )
+        self.client.force_authenticate(user=self.user)
+        self.plan = Plan.objects.create(
+            name="Pro Monthly",
+            billing_period="monthly",
+            price=29.99,
+            duration=30,
+            active=True,
+            order=1
+        )
+
+    @patch("stripe.checkout.Session.create")
+    def test_create_checkout_session(self, mock_session_create):
+        from accounts.models import Payment
+        mock_session_create.return_value = MagicMock(
+            id="cs_test_12345",
+            url="https://checkout.stripe.com/pay/cs_test_12345"
+        )
+
+        response = self.client.post(f"/api/v1/auth/create-checkout-session/{self.plan.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["checkout_url"], "https://checkout.stripe.com/pay/cs_test_12345")
+
+        payment = Payment.objects.filter(user=self.user, plan=self.plan).first()
+        self.assertIsNotNone(payment)
+        self.assertEqual(payment.status, Payment.PENDING)
+        self.assertEqual(payment.transaction_id, "cs_test_12345")
+
+    @patch("stripe.Webhook.construct_event")
+    def test_stripe_webhook_checkout_completed(self, mock_construct_event):
+        from accounts.models import Payment
+        pending_payment = Payment.objects.create(
+            user=self.user,
+            plan=self.plan,
+            amount=self.plan.price,
+            payment_method="stripe",
+            transaction_id="cs_test_99999",
+            status=Payment.PENDING
+        )
+
+        mock_construct_event.return_value = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_test_99999",
+                    "payment_intent": "pi_3MtwBwLkdIwHu7ix28a3tCGl",
+                    "metadata": {
+                        "user_id": self.user.id,
+                        "plan_id": self.plan.id
+                    }
+                }
+            }
+        }
+
+        response = self.client.post(
+            "/api/v1/auth/stripe/webhook/",
+            data=b"{}",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=signature"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        pending_payment.refresh_from_db()
+        self.assertEqual(pending_payment.status, Payment.SUCCESSFUL)
+        self.assertEqual(pending_payment.transaction_id, "pi_3MtwBwLkdIwHu7ix28a3tCGl")
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.plan, self.plan)
+        self.assertEqual(self.user.status, User.ACTIVE)
+
+
+
