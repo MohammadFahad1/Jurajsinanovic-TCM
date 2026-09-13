@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from health_check.models import Question, Answer
+from health_check.models import Question, Answer, UserCheckIn, UserAnswer
+
 
 class AnswerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,4 +39,14 @@ class QuestionSerializer(serializers.ModelSerializer):
 
         return instance
 
+class UserCheckInSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserCheckIn
+        fields = ['id', 'user', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['user']
 
+class UserCheckinAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAnswer
+        fields = ['id', 'check_in', 'question', 'answer', 'score', 'created_at', 'updated_at']
+        read_only_fields = ['check_in', 'score', 'created_at', 'updated_at']

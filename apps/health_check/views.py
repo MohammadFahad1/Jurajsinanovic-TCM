@@ -1,3 +1,4 @@
+from accounts.serializers import EmptySerializer
 from rest_framework.response import Response
 from health_check.models import Question, Answer
 from health_check.serializers import QuestionSerializer, AnswerSerializer
@@ -594,5 +595,51 @@ class AnswerDetailAPIView(NewAPIView):
         answer.delete()
         return Response({"success": True, "data": "Answer deleted successfully"}, status=status.HTTP_200_OK)
 
+class UserCheckInListCreateAPIView(NewAPIView):
+    serializer_class = EmptySerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post']
 
+    def get(self, request):
+        """
+        **Get all user check-ins for the authenticated user**\n
+        This API is used for retrieving all user check-ins for the authenticated user.
 
+        * Response:*
+            - success: (boolean) True if request was successful
+            - data: (object) List of user check-ins
+                - id: (integer) User check-in ID
+                - user: (integer) User ID
+                - status: (string) Status of the check-in
+                - created_at: (string) Timestamp when check-in was created
+                - updated_at: (string) Timestamp when check-in was last updated
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "data": [
+                {
+                    "id": 1,
+                    "user": 1,
+                    "status": "completed",
+                    "created_at": "2026-09-12T11:35:28.000Z",
+                    "updated_at": "2026-09-12T11:35:28.000Z"
+                },
+                {
+                    "id": 2,
+                    "user": 1,
+                    "status": "completed",
+                    "created_at": "2026-09-12T11:35:28.000Z",
+                    "updated_at": "2026-09-12T11:35:28.000Z"
+                }
+            ]
+        }
+        ```
+
+        * Status Codes:*
+            - 200: User check-ins retrieved successfully
+        """
+        user_check_ins = UserCheckIn.objects.filter(user=request.user)
+        serializer = UserCheckInSerializer(user_check_ins, many=True)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
