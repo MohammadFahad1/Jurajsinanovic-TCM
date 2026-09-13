@@ -596,42 +596,50 @@ class AnswerDetailAPIView(NewAPIView):
         return Response({"success": True, "data": "Answer deleted successfully"}, status=status.HTTP_200_OK)
 
 class UserCheckInListCreateAPIView(NewAPIView):
-    serializer_class = EmptySerializer
+    serializer_class = UserCheckInSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post']
 
-    def get(self, request):
+    @swagger_auto_schema(
+        tags=['Health Check'],
+        responses={200: UserCheckInSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
         """
         **Get all user check-ins for the authenticated user**\n
-        This API is used for retrieving all user check-ins for the authenticated user.
+        This API is used for retrieving all user check-ins for the authenticated user.\n
 
         * Response:*
             - success: (boolean) True if request was successful
-            - data: (object) List of user check-ins
-                - id: (integer) User check-in ID
-                - user: (integer) User ID
-                - status: (string) Status of the check-in
-                - created_at: (string) Timestamp when check-in was created
-                - updated_at: (string) Timestamp when check-in was last updated
+            - message: (string) Status message
+            - data: (list) List of user check-ins with associated question answers
 
         **Example Response**\n
         ```json
         {
             "success": true,
+            "message": "User check-ins retrieved successfully",
             "data": [
                 {
                     "id": 1,
                     "user": 1,
                     "status": "completed",
-                    "created_at": "2026-09-12T11:35:28.000Z",
-                    "updated_at": "2026-09-12T11:35:28.000Z"
-                },
-                {
-                    "id": 2,
-                    "user": 1,
-                    "status": "completed",
-                    "created_at": "2026-09-12T11:35:28.000Z",
-                    "updated_at": "2026-09-12T11:35:28.000Z"
+                    "score": 15,
+                    "total_answered": 1,
+                    "pattern": "Cold",
+                    "answers": [
+                        {
+                            "id": 1,
+                            "check_in": 1,
+                            "question": 1,
+                            "answer": 2,
+                            "score": 5,
+                            "created_at": "2026-09-13T12:00:00.000Z",
+                            "updated_at": "2026-09-13T12:00:00.000Z"
+                        }
+                    ],
+                    "created_at": "2026-09-13T12:00:00.000Z",
+                    "updated_at": "2026-09-13T12:00:00.000Z"
                 }
             ]
         }
@@ -639,13 +647,121 @@ class UserCheckInListCreateAPIView(NewAPIView):
 
         * Status Codes:*
             - 200: User check-ins retrieved successfully
+            - 401: Unauthorized
         """
-        user_check_ins = UserCheckIn.objects.filter(user=request.user)
+        user_check_ins = UserCheckIn.objects.filter(user=request.user).prefetch_related('answers')
         serializer = UserCheckInSerializer(user_check_ins, many=True, context={'request': request})
-        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({
+            "success": True,
+            "message": "User check-ins retrieved successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
     
-    def post(self, request):
+    @swagger_auto_schema(
+        tags=['Health Check'],
+        request_body=UserCheckInSerializer,
+        responses={201: UserCheckInSerializer()}
+    )
+    def post(self, request, *args, **kwargs):
         """
-        **Create a new user check-in**
+        **Create a new user check-in - Authenticated Users**\n
+        Creates a new health check-in along with optional question answers for the authenticated user.\n
+
+        * Request Body:*
+            - answers: (list, optional) List of answer objects:
+                - question: (integer) Question ID
+                - answer: (integer) Answer ID
+
+        * Response:*
+            - success: (boolean) True if user check-in created successfully, False otherwise
+            - message: (string) Status message
+            - data: (object) Created user check-in details with total score, total_answered count, and constitution pattern
+
+        **Example Request**\n
+        ```json
+        {
+            "answers": [
+                {
+                    "question": 1,
+                    "answer": 2
+                },
+                {
+                    "question": 2,
+                    "answer": 5
+                }
+            ]
+        }
+        ```
+
+        **Example Response**\n
+        ```json
+        {
+            "success": true,
+            "message": "User check-in created successfully",
+            "data": {
+                "id": 1,
+                "user": 1,
+                "status": "completed",
+                "score": 15,
+                "total_answered": 2,
+                "pattern": "Cold",
+                "answers": [
+                    {
+                        "id": 1,
+                        "check_in": 1,
+                        "question": 1,
+                        "answer": 2,
+                        "score": 5,
+                        "created_at": "2026-09-13T12:00:00.000Z",
+                        "updated_at": "2026-09-13T12:00:00.000Z"
+                    },
+                    {
+                        "id": 2,
+                        "check_in": 1,
+                        "question": 2,
+                        "answer": 5,
+                        "score": 10,
+                        "created_at": "2026-09-13T12:00:00.000Z",
+                        "updated_at": "2026-09-13T12:00:00.000Z"
+                    }
+                ],
+                "created_at": "2026-09-13T12:00:00.000Z",
+                "updated_at": "2026-09-13T12:00:00.000Z"
+            }
+        }
+        ```
+
+        * Status Codes:*
+            - 201: User check-in created successfully
+            - 400: Bad request (invalid data)
+            - 401: Unauthorized
         """
-        pass
+        try:
+            user_target = request.user
+            if request.user.is_staff and request.data.get('user'):
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user_id = request.data.get('user')
+                user_target = User.objects.filter(id=user_id).first()
+                if not user_target:
+                    return Response({
+                        "success": False,
+                        "message": "Target user not found."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = UserCheckInSerializer(data=request.data, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            check_in = serializer.save(user=user_target, status=UserCheckIn.COMPLETED)
+
+            return Response({
+                "success": True,
+                "message": "User check-in created successfully",
+                "data": UserCheckInSerializer(check_in).data
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
