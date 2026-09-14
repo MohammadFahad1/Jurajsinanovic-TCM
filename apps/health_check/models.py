@@ -69,4 +69,31 @@ class UserAnswer(models.Model):
         verbose_name = 'User Answer'
         verbose_name_plural = 'User Answers'
 
+class Pattern(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Pattern'
+        verbose_name_plural = 'Patterns'
+        ordering = ['id']
+
+class Reading(models.Model):
+    check_in = models.ForeignKey(UserCheckIn, on_delete=models.CASCADE, related_name='readings')
+    pattern = models.ForeignKey(Pattern, on_delete=models.CASCADE, related_name='readings')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Reading by {self.check_in.user} at {self.created_at}"
+
+    class Meta:
+        verbose_name = 'Reading'
+        verbose_name_plural = 'Readings'
+        ordering = ['id']
 
